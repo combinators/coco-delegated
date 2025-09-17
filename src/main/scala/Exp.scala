@@ -43,7 +43,7 @@ trait M0Expressions extends BaseExpressions {
 
     trait Add(val left: BaseDefs.Expression, val right: BaseDefs.Expression) extends Expression {
       def getSelfAdd: finalTypes.Add
-      
+
       def add(other: BaseDefs.Expression): BaseDefs.Expression = factory.add(other, this)
       def print: String = {
         import factory._
@@ -52,8 +52,8 @@ trait M0Expressions extends BaseExpressions {
     }
 
     trait Factory extends BaseDefs.Factory {
-      def convert(lit: Lit): finalTypes.Lit = lit.getSelfLit
-      def convert(add: Add): finalTypes.Add = add.getSelfAdd
+      implicit def convert(lit: Lit): finalTypes.Lit = lit.getSelfLit
+      implicit def convert(add: Add): finalTypes.Add = add.getSelfAdd
 
       def lit(value: Int): Lit
       def add(left: BaseDefs.Expression, right: BaseDefs.Expression): Add
@@ -151,9 +151,9 @@ trait M0Statements extends BaseStatements {
     }
 
     trait Factory extends BaseDefs.Factory {
-      def convert(ifstm: If): finalTypes.If = ifstm.getSelfIf
-      def convert(block: Block): finalTypes.Block = block.getSelfBlock
-      def convert(println: PrintLn): finalTypes.PrintLn = println.getSelfPrintln
+      implicit def convert(ifstm: If): finalTypes.If = ifstm.getSelfIf
+      implicit def convert(block: Block): finalTypes.Block = block.getSelfBlock
+      implicit def convert(println: PrintLn): finalTypes.PrintLn = println.getSelfPrintln
 
       def ifStmt(condition: expressions.BaseDefs.Expression, thenBlock: BaseDefs.Statement): If
       def block(stmts: Seq[BaseDefs.Statement]): Block
@@ -178,7 +178,7 @@ class FinalM0Statements[E <: M0Expressions](val expressions: E) extends M0Statem
     trait Statement extends M0Defs.Statement {
       override def getSelfStatement: finalTypes.Statement = this
     }
-    
+
 
     trait Factory extends M0Defs.Factory {
       def ifStmt(condition: expressions.BaseDefs.Expression, thenBlock: BaseDefs.Statement) = new M0Defs.If(condition, thenBlock) with Statement {
