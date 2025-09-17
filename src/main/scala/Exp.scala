@@ -1,7 +1,11 @@
+import FinalM0Expressions.finalTypes
+
+import scala.language.implicitConversions
+
 trait BaseExpressions {
   object BaseDefs {
     trait FinalTypes {
-      type Expression
+      type Expression <: BaseDefs.Expression
     }
 
     trait Expression {
@@ -9,7 +13,7 @@ trait BaseExpressions {
     }
 
     trait Factory {
-      def convert(exp: Expression): Expression
+      implicit def convert(exp: Expression): finalTypes.Expression = exp.getSelfExpression
     }
   }
 
@@ -20,8 +24,9 @@ trait BaseExpressions {
 trait M0Expressions extends BaseExpressions {
   object M0Defs {
     trait FinalTypes extends BaseDefs.FinalTypes {
-      type Lit
-      type Add
+      type Expression <: M0Defs.Expression
+      type Lit <: M0Defs.Lit
+      type Add <: M0Defs.Add
     }
 
     trait Expression extends BaseDefs.Expression {
@@ -29,33 +34,26 @@ trait M0Expressions extends BaseExpressions {
       def print: String
     }
 
-    trait Lit extends Expression {
+    trait Lit(val value: Int) extends Expression {
       def getSelfLit: finalTypes.Lit
 
-      def value: Int
-
-      def add(other: BaseDefs.Expression): BaseDefs.Expression = {
-        factory.add(other, this)
-      }
+      def add(other: BaseDefs.Expression): BaseDefs.Expression = factory.add(other, this)
       def print: String = value.toString
     }
 
-    trait Add extends Expression {
+    trait Add(val left: BaseDefs.Expression, val right: BaseDefs.Expression) extends Expression {
       def getSelfAdd: finalTypes.Add
-
-      def left: BaseDefs.Expression
-      def right: BaseDefs.Expression
-
-      def add(other: BaseDefs.Expression): BaseDefs.Expression = {
-        factory.add(other, this)
+      
+      def add(other: BaseDefs.Expression): BaseDefs.Expression = factory.add(other, this)
+      def print: String = {
+        import factory._
+        s"(${left.print} + ${right.print})"
       }
-      def print: String = s"(${factory.convert(left).print} + ${factory.convert(right).print})"
     }
 
     trait Factory extends BaseDefs.Factory {
-      def convert(exp: BaseDefs.Expression): Expression
-      def convert(lit: Lit): Lit
-      def convert(add: Add): Add
+      def convert(lit: Lit): finalTypes.Lit = lit.getSelfLit
+      def convert(add: Add): finalTypes.Add = add.getSelfAdd
 
       def lit(value: Int): Lit
       def add(left: BaseDefs.Expression, right: BaseDefs.Expression): Add
@@ -69,28 +67,22 @@ trait M0Expressions extends BaseExpressions {
 object FinalM0Expressions extends M0Expressions {
   object FinalDefs {
     trait FinalTypes extends M0Defs.FinalTypes {
-      type Expression = FinalDefs.Expression
-      type Lit = FinalDefs.Lit
-      type Add = FinalDefs.Add
+      type Expression = M0Defs.Expression
+      type Lit = M0Defs.Lit
+      type Add = M0Defs.Add
     }
 
     trait Expression extends M0Defs.Expression {
       override def getSelfExpression: Expression = this
     }
 
-    case class Lit(value: Int) extends M0Defs.Lit with Expression {
-      override def getSelfLit: Lit = this
-    }
-    case class Add(left: BaseDefs.Expression, right: BaseDefs.Expression) extends M0Defs.Add with Expression {
-      override def getSelfAdd: Add = this
-    }
-
     trait Factory extends M0Defs.Factory {
-      def convert(exp: BaseDefs.Expression): FinalDefs.Expression = exp.getSelfExpression
-      def convert(lit: M0Defs.Lit): FinalDefs.Lit = lit.getSelfLit
-      def convert(add: M0Defs.Add): FinalDefs.Add = add.getSelfAdd
-      def lit(value: Int): FinalDefs.Lit = Lit(value)
-      def add(left: BaseDefs.Expression, right: BaseDefs.Expression): FinalDefs.Add = Add(left, right)
+      def lit(value: Int): finalTypes.Lit = new M0Defs.Lit(value) with Expression {
+        def getSelfLit: finalTypes.Lit = this
+      }
+      def add(left: BaseDefs.Expression, right: BaseDefs.Expression): finalTypes.Add = new M0Defs.Add(left, right) with Expression {
+        def getSelfAdd: finalTypes.Add = this
+      }
     }
   }
 
@@ -101,7 +93,7 @@ object FinalM0Expressions extends M0Expressions {
 trait BaseStatements {
   object BaseDefs {
     trait FinalTypes {
-      type Statement
+      type Statement <: BaseDefs.Statement
     }
 
     trait Statement {
@@ -109,7 +101,7 @@ trait BaseStatements {
     }
 
     trait Factory {
-      def convert(stmt: Statement): Statement
+      implicit def convert(stmt: Statement): finalTypes.Statement = stmt.getSelfStatement
     }
   }
 
@@ -120,49 +112,52 @@ trait BaseStatements {
 trait M0Statements extends BaseStatements {
   object M0Defs {
     trait FinalTypes extends BaseDefs.FinalTypes {
-      type If
-      type Block
-      type PrintLn
+      type Statement <: M0Defs.Statement
+      type If <: M0Defs.If
+      type Block <: M0Defs.Block
+      type PrintLn <: M0Defs.PrintLn
     }
 
     trait Statement extends BaseDefs.Statement {
       def print: String
     }
 
-    trait If extends BaseDefs.Statement {
+    trait If(val condition: expressions.BaseDefs.Expression, val thenStmt: BaseDefs.Statement) extends BaseDefs.Statement {
       def getSelfIf: finalTypes.If
 
-      def condition: expressions.BaseDefs.Expression
-      def thenStmt: BaseDefs.Statement
-
-      def print: String = s"if (${expressions.factory.convert(this.condition).print}) ${factory.convert(this.thenStmt).print}"
+      def print: String = {
+        import expressions.factory._
+        import factory._
+        s"if (${condition.print}) ${thenStmt.print}"
+      }
     }
 
-    trait Block extends BaseDefs.Statement {
+    trait Block(val stmts: Seq[BaseDefs.Statement]) extends BaseDefs.Statement {
       def getSelfBlock: finalTypes.Block
 
-      def stmts: Seq[BaseDefs.Statement]
-
-      def print: String = stmts.map(stmt => factory.convert(stmt).print).mkString("{\n\t", "\n\t", "\n}\n")
+      def print: String = {
+        import factory._
+        stmts.map(stmt => stmt.print).mkString("{\n\t", "\n\t", "\n}\n")
+      }
     }
 
-    trait Println extends BaseDefs.Statement {
+    trait PrintLn(val printExpression: expressions.BaseDefs.Expression) extends BaseDefs.Statement {
       def getSelfPrintln: finalTypes.PrintLn
 
-      def printExpression: expressions.BaseDefs.Expression
-
-      def print: String = s"println(${expressions.factory.convert(printExpression).print})"
+      def print: String = {
+        import expressions.factory._
+        s"println(${printExpression.print})"
+      }
     }
 
     trait Factory extends BaseDefs.Factory {
-      def convert(stmt: BaseDefs.Statement): Statement
-      def convert(ifstm: If): If
-      def convert(block: Block): Block
-      def convert(println: Println): Println
+      def convert(ifstm: If): finalTypes.If = ifstm.getSelfIf
+      def convert(block: Block): finalTypes.Block = block.getSelfBlock
+      def convert(println: PrintLn): finalTypes.PrintLn = println.getSelfPrintln
 
       def ifStmt(condition: expressions.BaseDefs.Expression, thenBlock: BaseDefs.Statement): If
       def block(stmts: Seq[BaseDefs.Statement]): Block
-      def println(printExpression: expressions.BaseDefs.Expression): Println
+      def println(printExpression: expressions.BaseDefs.Expression): PrintLn
     }
   }
 
@@ -174,34 +169,27 @@ trait M0Statements extends BaseStatements {
 class FinalM0Statements[E <: M0Expressions](val expressions: E) extends M0Statements {
   object FinalDefs {
     trait FinalTypes extends M0Defs.FinalTypes {
-      type Statement = FinalDefs.Statement
-      type If = FinalDefs.If
-      type Block = FinalDefs.Block
-      type PrintLn = FinalDefs.PrintLn
+      type Statement = M0Defs.Statement
+      type If = M0Defs.If
+      type Block = M0Defs.Block
+      type PrintLn = M0Defs.PrintLn
     }
 
     trait Statement extends M0Defs.Statement {
       override def getSelfStatement: finalTypes.Statement = this
     }
-    case class If(condition: expressions.BaseDefs.Expression, thenStmt: BaseDefs.Statement) extends M0Defs.If with Statement {
-      override def getSelfIf: finalTypes.If = this
-    }
-    case class Block(stmts: Seq[BaseDefs.Statement]) extends M0Defs.Block with Statement {
-      override def getSelfBlock: finalTypes.Block = this
-    }
-    case class PrintLn(printExpression: expressions.BaseDefs.Expression) extends M0Defs.Println with Statement {
-      override def getSelfPrintln: finalTypes.PrintLn = this
-    }
+    
 
     trait Factory extends M0Defs.Factory {
-      def convert(stmt: BaseDefs.Statement): Statement = stmt.getSelfStatement
-      def convert(ifstm: M0Defs.If): If = ifstm.getSelfIf
-      def convert(block: M0Defs.Block): Block = block.getSelfBlock
-      def convert(println: M0Defs.Println): PrintLn = println.getSelfPrintln
-
-      def ifStmt(condition: expressions.BaseDefs.Expression, thenBlock: BaseDefs.Statement): If = If(condition, thenBlock)
-      def block(stmts: Seq[BaseDefs.Statement]): Block = Block(stmts)
-      def println(printExpression: expressions.BaseDefs.Expression): PrintLn = PrintLn(printExpression)
+      def ifStmt(condition: expressions.BaseDefs.Expression, thenBlock: BaseDefs.Statement) = new M0Defs.If(condition, thenBlock) with Statement {
+        def getSelfIf: M0Defs.If = this
+      }
+      def block(stmts: Seq[BaseDefs.Statement]) = new M0Defs.Block(stmts) with Statement {
+        def getSelfBlock: M0Defs.Block = this
+      }
+      def println(printExpression: expressions.BaseDefs.Expression) = new M0Defs.PrintLn(printExpression) with Statement {
+        def getSelfPrintln = this
+      }
     }
   }
 
